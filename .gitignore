@@ -1,0 +1,20 @@
+# Build artifacts
+.gradle/
+build/
+app/build/
+*.apk
+*.aar
+*.jks
+
+# IDE settings
+.idea/
+*.iml
+.DS_Store
+captures/
+
+# Sensitive info
+local.properties
+
+# Generated files
+.cxx/
+.externalNativeBuild/
