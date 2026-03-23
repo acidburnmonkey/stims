@@ -7,7 +7,7 @@ app/build/
 *.jks
 
 # IDE settings
-.idea/
+.idea/*
 *.iml
 .DS_Store
 captures/
