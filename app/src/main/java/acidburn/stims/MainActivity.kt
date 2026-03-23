@@ -1,4 +1,4 @@
-package com.example.stims
+package acidburn.stims
 
 import android.app.AppOpsManager
 import android.content.Context

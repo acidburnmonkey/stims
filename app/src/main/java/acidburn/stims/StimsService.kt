@@ -1,4 +1,4 @@
-package com.example.stims
+package acidburn.stims
 
 import android.app.*
 import android.app.usage.UsageEvents

@@ -11,6 +11,7 @@ app/build/
 *.iml
 .DS_Store
 captures/
+.claude
 
 # Sensitive info
 local.properties
