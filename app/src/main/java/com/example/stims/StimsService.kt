@@ -68,7 +68,7 @@ class StimsService : Service() {
     private fun checkForegroundApp() {
         val usageStatsManager = getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
         val time = System.currentTimeMillis()
-        val events = usageStatsManager.queryEvents(time - 15000, time) // Increased window to match longer interval
+        val events = usageStatsManager.queryEvents(time - 15000, time)
         val event = UsageEvents.Event()
         var currentPackage: String? = null
 

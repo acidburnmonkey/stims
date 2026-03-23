@@ -87,17 +87,14 @@ fun AppListScreen(prefs: SharedPreferences) {
     var allApps by remember { mutableStateOf<List<AppInfo>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
     
-    // Persistent list of apps that are "STIMMED" (Stay Awake Enabled)
-    val stimmedPackages = remember { 
+    val stimmedPackages = remember {
         mutableStateListOf<String>().apply {
             addAll(prefs.getStringSet("stimmed_apps", emptySet()) ?: emptySet())
         }
     }
 
-    // Temporary selection in the "All Apps" list
     val tempSelected = remember { mutableStateListOf<String>() }
 
-    // Automatic Daemon Lifecycle: Starts if list > 0, Stops if list == 0
     LaunchedEffect(stimmedPackages.toList()) {
         prefs.edit().putStringSet("stimmed_apps", stimmedPackages.toSet()).apply()
         
@@ -240,7 +237,7 @@ fun StimmedAppItem(app: AppInfo, onRemove: () -> Unit) {
             .fillMaxWidth()
             .padding(horizontal = 12.dp, vertical = 6.dp),
         colors = CardDefaults.cardColors(
-            containerColor = Color(0xFFE8F5E9) // Light Green for "Awake" apps
+            containerColor = Color(0xFFE8F5E9)
         ),
         elevation = CardDefaults.cardElevation(4.dp)
     ) {
