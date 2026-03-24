@@ -31,7 +31,7 @@ class StimsService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val action = intent?.action
         val packages = intent?.getStringArrayListExtra("selected_packages")
-        
+
         if (packages != null) {
             selectedPackages = packages.toMutableSet()
             updateNotification()
@@ -97,7 +97,7 @@ class StimsService : Service() {
             val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
             @Suppress("DEPRECATION")
             wakeLock = powerManager.newWakeLock(
-                PowerManager.SCREEN_BRIGHT_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP, 
+                PowerManager.SCREEN_BRIGHT_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP,
                 "Stims::WakeLock"
             )
             wakeLock?.acquire(10 * 60 * 1000L) // 10 min timeout
@@ -132,6 +132,6 @@ class StimsService : Service() {
     companion object {
         const val CHANNEL_ID = "StimsServiceChannel"
         const val NOTIFICATION_ID = 1
-        const val ACTION_STOP = "com.example.stims.STOP"
+        const val ACTION_STOP = "acidburn.stims.STOP"
     }
 }
