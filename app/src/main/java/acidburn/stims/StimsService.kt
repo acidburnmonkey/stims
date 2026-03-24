@@ -10,6 +10,7 @@ import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.os.PowerManager
+import android.util.Log
 import androidx.core.app.NotificationCompat
 
 class StimsService : Service() {
@@ -18,6 +19,7 @@ class StimsService : Service() {
     private var selectedPackages = mutableSetOf<String>()
     private val handler = Handler(Looper.getMainLooper())
     private val checkInterval = 10000L // Check every 10 seconds
+    private var lastForegroundPackage: String? = null
 
     private val monitorRunnable = object : Runnable {
         override fun run() {
@@ -34,17 +36,18 @@ class StimsService : Service() {
 
         if (packages != null) {
             selectedPackages = packages.toMutableSet()
+            if (BuildConfig.DEBUG) Log.d(TAG, "Updated stimmed packages: $selectedPackages")
             updateNotification()
         }
 
         if (action == ACTION_STOP) {
+            if (BuildConfig.DEBUG) Log.d(TAG, "Stop action received")
             stopSelf()
             return START_NOT_STICKY
         }
 
+        if (BuildConfig.DEBUG) Log.d(TAG, "Service starting")
         startForegroundService()
-        handler.removeCallbacks(monitorRunnable)
-        handler.post(monitorRunnable)
 
         return START_STICKY
     }
@@ -52,6 +55,7 @@ class StimsService : Service() {
     private fun startForegroundService() {
         createNotificationChannel()
         updateNotification()
+        handler.removeCallbacks(monitorRunnable)
         handler.post(monitorRunnable)
     }
 
@@ -68,26 +72,29 @@ class StimsService : Service() {
     private fun checkForegroundApp() {
         val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
         if (!powerManager.isInteractive) {
+            if (BuildConfig.DEBUG) Log.d(TAG, "Screen not interactive, releasing wake lock")
             releaseWakeLock()
             return
         }
 
         val usageStatsManager = getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
         val time = System.currentTimeMillis()
-        val events = usageStatsManager.queryEvents(time - 15000, time)
+        val events = usageStatsManager.queryEvents(time - checkInterval * 2, time)
         val event = UsageEvents.Event()
-        var currentPackage: String? = null
 
         while (events.hasNextEvent()) {
             events.getNextEvent(event)
             if (event.eventType == UsageEvents.Event.MOVE_TO_FOREGROUND) {
-                currentPackage = event.packageName
+                lastForegroundPackage = event.packageName
             }
         }
 
-        if (currentPackage != null && selectedPackages.contains(currentPackage)) {
+        val shouldHold = lastForegroundPackage != null && selectedPackages.contains(lastForegroundPackage)
+        if (BuildConfig.DEBUG) Log.d(TAG, "Poll: foreground=$lastForegroundPackage shouldHold=$shouldHold wakeLockHeld=${wakeLock?.isHeld}")
+
+        if (shouldHold) {
             acquireWakeLock()
-        } else if (currentPackage != null) {
+        } else {
             releaseWakeLock()
         }
     }
@@ -100,13 +107,16 @@ class StimsService : Service() {
                 PowerManager.SCREEN_BRIGHT_WAKE_LOCK or PowerManager.ACQUIRE_CAUSES_WAKEUP,
                 "Stims::WakeLock"
             )
-            wakeLock?.acquire(10 * 60 * 1000L) // 10 min timeout
+            @Suppress("WakelockTimeout")
+            wakeLock?.acquire() // service lifecycle manages release
+            if (BuildConfig.DEBUG) Log.d(TAG, "Wake lock acquired for $lastForegroundPackage")
         }
     }
 
     private fun releaseWakeLock() {
         if (wakeLock?.isHeld == true) {
             wakeLock?.release()
+            if (BuildConfig.DEBUG) Log.d(TAG, "Wake lock released")
         }
         wakeLock = null
     }
@@ -133,5 +143,6 @@ class StimsService : Service() {
         const val CHANNEL_ID = "StimsServiceChannel"
         const val NOTIFICATION_ID = 1
         const val ACTION_STOP = "acidburn.stims.STOP"
+        private const val TAG = "StimsService"
     }
 }

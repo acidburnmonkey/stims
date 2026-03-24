@@ -6,21 +6,29 @@ import android.content.Intent
 import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.graphics.drawable.Drawable
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.PowerManager
 import android.os.Process
 import android.provider.Settings
 import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -44,18 +52,31 @@ data class AppInfo(
 
 class MainActivity : ComponentActivity() {
     private lateinit var prefs: SharedPreferences
+    private var showBatteryWarning by mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         prefs = getSharedPreferences("stims_prefs", Context.MODE_PRIVATE)
-        
+
         setContent {
             StimsTheme {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background
                 ) {
-                    AppListScreen(prefs)
+                    AppListScreen(
+                        prefs = prefs,
+                        showBatteryWarning = showBatteryWarning,
+                        isSamsung = Build.MANUFACTURER.equals("samsung", ignoreCase = true),
+                        onOpenBatterySettings = {
+                            startActivity(
+                                Intent(
+                                    Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                    Uri.fromParts("package", packageName, null)
+                                )
+                            )
+                        }
+                    )
                 }
             }
         }
@@ -67,6 +88,9 @@ class MainActivity : ComponentActivity() {
             Toast.makeText(this, "Please enable Usage Stats permission", Toast.LENGTH_LONG).show()
             startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
         }
+        val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
+        val isSamsung = Build.MANUFACTURER.equals("samsung", ignoreCase = true)
+        showBatteryWarning = isSamsung || !pm.isIgnoringBatteryOptimizations(packageName)
     }
 
     private fun hasUsageStatsPermission(context: Context): Boolean {
@@ -83,7 +107,12 @@ class MainActivity : ComponentActivity() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun AppListScreen(prefs: SharedPreferences) {
+fun AppListScreen(
+    prefs: SharedPreferences,
+    showBatteryWarning: Boolean,
+    isSamsung: Boolean,
+    onOpenBatterySettings: () -> Unit,
+) {
     val context = LocalContext.current
     val packageManager = context.packageManager
     
@@ -160,6 +189,9 @@ fun AppListScreen(prefs: SharedPreferences) {
             }
         } else {
             Column(modifier = Modifier.padding(padding)) {
+                if (showBatteryWarning) {
+                    BatteryWarningBanner(isSamsung = isSamsung, onClick = onOpenBatterySettings)
+                }
                 OutlinedTextField(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
@@ -293,5 +325,51 @@ fun AppIcon(icon: Drawable?) {
             color = MaterialTheme.colorScheme.surfaceVariant,
             shape = MaterialTheme.shapes.small
         ) {}
+    }
+}
+
+@Composable
+fun BatteryWarningBanner(isSamsung: Boolean, onClick: () -> Unit) {
+    val warningColor = Color(0xFFF59E0B)
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 12.dp, vertical = 6.dp)
+            .border(width = 1.5.dp, color = warningColor, shape = MaterialTheme.shapes.small)
+            .clickable { onClick() }
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = Icons.Default.Warning,
+            contentDescription = null,
+            tint = warningColor,
+            modifier = Modifier.size(20.dp)
+        )
+        Spacer(modifier = Modifier.width(10.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = "Battery optimization is active",
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF92400E)
+            )
+            Text(
+                text = if (isSamsung)
+                    "Tap → App info → Battery → set to Unrestricted"
+                else
+                    "Tap → App info → Battery → Unrestricted",
+                style = MaterialTheme.typography.bodySmall,
+                color = Color(0xFFB45309)
+            )
+        }
+        Spacer(modifier = Modifier.width(6.dp))
+        Icon(
+            imageVector = Icons.Default.ArrowForward,
+            contentDescription = null,
+            tint = warningColor,
+            modifier = Modifier.size(16.dp)
+        )
     }
 }
