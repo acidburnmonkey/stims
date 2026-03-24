@@ -19,3 +19,5 @@ local.properties
 # Generated files
 .cxx/
 .externalNativeBuild/
+dev.sh
+todo.md
