@@ -196,16 +196,12 @@ fun AppListScreen(prefs: SharedPreferences) {
                 }
                 
                 Button(
-                    onClick = { 
-                        if (tempSelected.isEmpty()) {
-                            Toast.makeText(context, "Check some apps first!", Toast.LENGTH_SHORT).show()
-                        } else {
-                            stimmedPackages.addAll(tempSelected)
-                            tempSelected.clear()
-                            // Service lifecycle is handled automatically by LaunchedEffect
-                            Toast.makeText(context, "Apps Stimmed!", Toast.LENGTH_SHORT).show()
-                        }
+                    onClick = {
+                        stimmedPackages.addAll(tempSelected)
+                        tempSelected.clear()
+                        Toast.makeText(context, "Apps Stimmed!", Toast.LENGTH_SHORT).show()
                     },
+                    enabled = tempSelected.isNotEmpty(),
                     modifier = Modifier.fillMaxWidth().padding(16.dp),
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
                     shape = MaterialTheme.shapes.medium
