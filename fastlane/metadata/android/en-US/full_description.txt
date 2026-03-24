@@ -1,0 +1,7 @@
+Stims lets you select apps that should prevent your screen from turning off. When a stimmed app is active in the foreground,
+the screen stays on at full brightness. When you switch to a different app, the screen resumes normal sleep behavior.
+
+Select apps to stim from the list, tap "Stim Selected Apps", and a background service will monitor the foreground
+app and hold a wake lock whenever one of your chosen apps is active.
+
+Requires Usage Access permission to detect which app is in the foreground.
