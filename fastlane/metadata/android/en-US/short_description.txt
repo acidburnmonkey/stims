@@ -1,1 +1,0 @@
-Keep your screen awake while specific apps are in the foreground.
