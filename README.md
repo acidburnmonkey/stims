@@ -8,6 +8,20 @@ Stims lets you select apps that should prevent your screen from turning off. Whe
 
 ---
 
+## Permissions
+
+Stims requires **Usage Access** permission to detect which app is in the foreground so it can keep the phone awake.
+
+On first launch the app will redirect you to the system settings screen. To enable it:
+
+1. Go to **Settings → Apps → Special app access → Usage access**
+2. Find **Stims** in the list and toggle it on
+3. Return to the app
+
+Without this permission the background service cannot detect foreground apps and the screen will not be kept awake.
+
+---
+
 # Building from source
 
 **Requirements**

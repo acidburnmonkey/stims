@@ -32,6 +32,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.graphics.drawable.toBitmap
+import acidburn.stims.ui.theme.StimsTheme
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -49,11 +50,13 @@ class MainActivity : ComponentActivity() {
         prefs = getSharedPreferences("stims_prefs", Context.MODE_PRIVATE)
         
         setContent {
-            Surface(
-                modifier = Modifier.fillMaxSize(),
-                color = MaterialTheme.colorScheme.background
-            ) {
-                AppListScreen(prefs)
+            StimsTheme {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background
+                ) {
+                    AppListScreen(prefs)
+                }
             }
         }
     }
