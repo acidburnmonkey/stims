@@ -66,6 +66,12 @@ class StimsService : Service() {
     }
 
     private fun checkForegroundApp() {
+        val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
+        if (!powerManager.isInteractive) {
+            releaseWakeLock()
+            return
+        }
+
         val usageStatsManager = getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
         val time = System.currentTimeMillis()
         val events = usageStatsManager.queryEvents(time - 15000, time)
