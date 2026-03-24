@@ -40,12 +40,21 @@ cd stims
 The APK will be output to:
 
 ```
-app/build/outputs/apk/debug/stims-<version>.apk
+app/build/outputs/apk/debug/app-debug.apk
 ```
 
 For a release build:
 
 ```bash
 ./gradlew assembleRelease
-# output: app/build/outputs/apk/release/stims-<version>.apk
+# output: app/build/outputs/apk/release/app-release-unsigned.apk
 ```
+
+The release APK is unsigned. You will need to sign it before installing or distributing it.
+
+---
+
+## Compatibility
+
+- **Minimum:** Android 7.0 (Nougat, API 24)
+- **Target:** Android 14 (API 34)
