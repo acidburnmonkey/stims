@@ -50,8 +50,6 @@ For a release build:
 # output: app/build/outputs/apk/release/app-release-unsigned.apk
 ```
 
-The release APK is unsigned. You will need to sign it before installing or distributing it.
-
 ---
 
 ## Compatibility
