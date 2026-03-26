@@ -5,17 +5,30 @@ import android.app.usage.UsageEvents
 import android.app.usage.UsageStatsManager
 import android.content.Context
 import android.content.Intent
+import android.graphics.PixelFormat
 import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.os.PowerManager
+import android.provider.Settings
 import android.util.Log
+import android.view.View
+import android.view.WindowManager
 import androidx.core.app.NotificationCompat
 
 class StimsService : Service() {
 
+    // Samsung and certain OEMs disable SCREEN_BRIGHT_WAKE_LOCK; use a 1x1 overlay with
+    // FLAG_KEEP_SCREEN_ON instead, which the WindowManager honours on all devices.
+    private var useOverlayStrategy = OVERLAY_VENDORS.any {
+        Build.MANUFACTURER.equals(it, ignoreCase = true)
+    }
+
     private var wakeLock: PowerManager.WakeLock? = null
+    private var overlayView: View? = null
+    private val windowManager by lazy { getSystemService(WINDOW_SERVICE) as WindowManager }
+
     private var selectedPackages = mutableSetOf<String>()
     private val handler = Handler(Looper.getMainLooper())
     private val checkInterval = 10000L // Check every 10 seconds
@@ -39,6 +52,12 @@ class StimsService : Service() {
             if (BuildConfig.DEBUG) Log.d(TAG, "Updated stimmed packages: $selectedPackages")
             updateNotification()
         }
+
+        val forceOverlay = intent?.getBooleanExtra(EXTRA_FORCE_OVERLAY, false) ?: false
+        useOverlayStrategy = forceOverlay || OVERLAY_VENDORS.any {
+            Build.MANUFACTURER.equals(it, ignoreCase = true)
+        }
+        if (BuildConfig.DEBUG) Log.d(TAG, "useOverlayStrategy=$useOverlayStrategy forceOverlay=$forceOverlay")
 
         if (action == ACTION_STOP) {
             if (BuildConfig.DEBUG) Log.d(TAG, "Stop action received")
@@ -72,8 +91,8 @@ class StimsService : Service() {
     private fun checkForegroundApp() {
         val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
         if (!powerManager.isInteractive) {
-            if (BuildConfig.DEBUG) Log.d(TAG, "Screen not interactive, releasing wake lock")
-            releaseWakeLock()
+            if (BuildConfig.DEBUG) Log.d(TAG, "Screen not interactive, releasing screen lock")
+            releaseScreenLock()
             return
         }
 
@@ -93,10 +112,18 @@ class StimsService : Service() {
         if (BuildConfig.DEBUG) Log.d(TAG, "Poll: foreground=$lastForegroundPackage shouldHold=$shouldHold wakeLockHeld=${wakeLock?.isHeld}")
 
         if (shouldHold) {
-            acquireWakeLock()
+            acquireScreenLock()
         } else {
-            releaseWakeLock()
+            releaseScreenLock()
         }
+    }
+
+    private fun acquireScreenLock() {
+        if (useOverlayStrategy) acquireOverlay() else acquireWakeLock()
+    }
+
+    private fun releaseScreenLock() {
+        if (useOverlayStrategy) releaseOverlay() else releaseWakeLock()
     }
 
     private fun acquireWakeLock() {
@@ -108,7 +135,7 @@ class StimsService : Service() {
                 "Stims::WakeLock"
             )
             @Suppress("WakelockTimeout")
-            wakeLock?.acquire() // service lifecycle manages release
+            wakeLock?.acquire()
             if (BuildConfig.DEBUG) Log.d(TAG, "Wake lock acquired for $lastForegroundPackage")
         }
     }
@@ -119,6 +146,33 @@ class StimsService : Service() {
             if (BuildConfig.DEBUG) Log.d(TAG, "Wake lock released")
         }
         wakeLock = null
+    }
+
+    private fun acquireOverlay() {
+        if (overlayView != null) return
+        if (!Settings.canDrawOverlays(this)) {
+            if (BuildConfig.DEBUG) Log.d(TAG, "Overlay permission not granted, cannot acquire overlay")
+            return
+        }
+        val params = WindowManager.LayoutParams(
+            1, 1,
+            WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or
+                WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE or
+                WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON,
+            PixelFormat.TRANSLUCENT
+        )
+        overlayView = View(this)
+        windowManager.addView(overlayView, params)
+        if (BuildConfig.DEBUG) Log.d(TAG, "Overlay acquired for $lastForegroundPackage")
+    }
+
+    private fun releaseOverlay() {
+        overlayView?.let {
+            windowManager.removeView(it)
+            overlayView = null
+            if (BuildConfig.DEBUG) Log.d(TAG, "Overlay released")
+        }
     }
 
     private fun createNotificationChannel() {
@@ -136,13 +190,17 @@ class StimsService : Service() {
     override fun onDestroy() {
         super.onDestroy()
         handler.removeCallbacks(monitorRunnable)
-        releaseWakeLock()
+        releaseScreenLock()
     }
 
     companion object {
         const val CHANNEL_ID = "StimsServiceChannel"
         const val NOTIFICATION_ID = 1
         const val ACTION_STOP = "acidburn.stims.STOP"
+        const val EXTRA_FORCE_OVERLAY = "force_overlay"
         private const val TAG = "StimsService"
+
+        // Vendors that disable SCREEN_BRIGHT_WAKE_LOCK — use overlay strategy instead
+        val OVERLAY_VENDORS = setOf("samsung")
     }
 }

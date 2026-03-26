@@ -9,7 +9,6 @@ import android.graphics.drawable.Drawable
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.os.PowerManager
 import android.os.Process
 import android.provider.Settings
 import android.widget.Toast
@@ -25,10 +24,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.OpenInNew
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -52,7 +54,7 @@ data class AppInfo(
 
 class MainActivity : ComponentActivity() {
     private lateinit var prefs: SharedPreferences
-    private var showBatteryWarning by mutableStateOf(false)
+    private var showOverlayWarning by mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -66,12 +68,11 @@ class MainActivity : ComponentActivity() {
                 ) {
                     AppListScreen(
                         prefs = prefs,
-                        showBatteryWarning = showBatteryWarning,
-                        isSamsung = Build.MANUFACTURER.equals("samsung", ignoreCase = true),
-                        onOpenBatterySettings = {
+                        showOverlayWarning = showOverlayWarning,
+                        onOpenOverlaySettings = {
                             startActivity(
                                 Intent(
-                                    Settings.ACTION_APPLICATION_DETAILS_SETTINGS,
+                                    Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
                                     Uri.fromParts("package", packageName, null)
                                 )
                             )
@@ -88,9 +89,10 @@ class MainActivity : ComponentActivity() {
             Toast.makeText(this, "Please enable Usage Stats permission", Toast.LENGTH_LONG).show()
             startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
         }
-        val pm = getSystemService(Context.POWER_SERVICE) as PowerManager
-        val isSamsung = Build.MANUFACTURER.equals("samsung", ignoreCase = true)
-        showBatteryWarning = isSamsung || !pm.isIgnoringBatteryOptimizations(packageName)
+        val needsOverlay = StimsService.OVERLAY_VENDORS.any {
+            Build.MANUFACTURER.equals(it, ignoreCase = true)
+        }
+        showOverlayWarning = needsOverlay && !Settings.canDrawOverlays(this)
     }
 
     private fun hasUsageStatsPermission(context: Context): Boolean {
@@ -109,16 +111,15 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun AppListScreen(
     prefs: SharedPreferences,
-    showBatteryWarning: Boolean,
-    isSamsung: Boolean,
-    onOpenBatterySettings: () -> Unit,
+    showOverlayWarning: Boolean,
+    onOpenOverlaySettings: () -> Unit,
 ) {
     val context = LocalContext.current
     val packageManager = context.packageManager
-    
+
     var allApps by remember { mutableStateOf<List<AppInfo>>(emptyList()) }
     var isLoading by remember { mutableStateOf(true) }
-    
+
     val stimmedPackages = remember {
         mutableStateListOf<String>().apply {
             addAll(prefs.getStringSet("stimmed_apps", emptySet()) ?: emptySet())
@@ -127,13 +128,16 @@ fun AppListScreen(
 
     val tempSelected = remember { mutableStateListOf<String>() }
 
-    LaunchedEffect(stimmedPackages.toList()) {
+    var forceOverlay by remember { mutableStateOf(prefs.getBoolean("force_overlay", false)) }
+
+    LaunchedEffect(stimmedPackages.toList(), forceOverlay) {
         prefs.edit().putStringSet("stimmed_apps", stimmedPackages.toSet()).apply()
-        
+
         val intent = Intent(context, StimsService::class.java).apply {
             putStringArrayListExtra("selected_packages", ArrayList(stimmedPackages))
+            putExtra(StimsService.EXTRA_FORCE_OVERLAY, forceOverlay)
         }
-        
+
         if (stimmedPackages.isEmpty()) {
             context.stopService(intent)
         } else {
@@ -151,7 +155,7 @@ fun AppListScreen(
                 addCategory(Intent.CATEGORY_LAUNCHER)
             }
             val resolveInfos = packageManager.queryIntentActivities(intent, 0)
-            
+
             resolveInfos.map { resolveInfo ->
                 AppInfo(
                     name = resolveInfo.loadLabel(packageManager).toString(),
@@ -165,21 +169,42 @@ fun AppListScreen(
     }
 
     var searchQuery by remember { mutableStateOf("") }
+    var showSettings by remember { mutableStateOf(false) }
 
     val stimList = remember(stimmedPackages.toList(), allApps) {
         allApps.filter { it.packageName in stimmedPackages }
     }
-    
+
     val availableApps = remember(searchQuery, stimmedPackages.toList(), allApps) {
-        allApps.filter { it.packageName !in stimmedPackages && 
-            (searchQuery.isBlank() || it.name.contains(searchQuery, ignoreCase = true) || it.packageName.contains(searchQuery, ignoreCase = true)) 
+        allApps.filter {
+            it.packageName !in stimmedPackages &&
+            (searchQuery.isBlank() || it.name.contains(searchQuery, ignoreCase = true) ||
+                it.packageName.contains(searchQuery, ignoreCase = true))
         }
+    }
+
+    if (showSettings) {
+        SettingsScreen(
+            forceOverlay = forceOverlay,
+            onForceOverlayChange = { checked ->
+                forceOverlay = checked
+                prefs.edit().putBoolean("force_overlay", checked).apply()
+            },
+            onOpenOverlaySettings = onOpenOverlaySettings,
+            onBack = { showSettings = false }
+        )
+        return
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Stims Manager", fontWeight = FontWeight.Bold) }
+                title = { Text("Stims Manager", fontWeight = FontWeight.Bold) },
+                actions = {
+                    IconButton(onClick = { showSettings = true }) {
+                        Icon(Icons.Default.Settings, contentDescription = "Settings")
+                    }
+                }
             )
         }
     ) { padding ->
@@ -189,8 +214,8 @@ fun AppListScreen(
             }
         } else {
             Column(modifier = Modifier.padding(padding)) {
-                if (showBatteryWarning) {
-                    BatteryWarningBanner(isSamsung = isSamsung, onClick = onOpenBatterySettings)
+                if (showOverlayWarning) {
+                    OverlayWarningBanner(onClick = onOpenOverlaySettings)
                 }
                 OutlinedTextField(
                     value = searchQuery,
@@ -205,9 +230,7 @@ fun AppListScreen(
 
                 LazyColumn(modifier = Modifier.weight(1f)) {
                     if (stimList.isNotEmpty()) {
-                        item {
-                            SectionHeader("STAY AWAKE (STIMMED)")
-                        }
+                        item { SectionHeader("STAY AWAKE (STIMMED)") }
                         items(stimList) { app ->
                             StimmedAppItem(app = app) {
                                 stimmedPackages.remove(app.packageName)
@@ -215,9 +238,7 @@ fun AppListScreen(
                         }
                     }
 
-                    item {
-                        SectionHeader("ALL APPS")
-                    }
+                    item { SectionHeader("ALL APPS") }
                     items(availableApps) { app ->
                         SelectableAppItem(
                             app = app,
@@ -229,7 +250,7 @@ fun AppListScreen(
                         )
                     }
                 }
-                
+
                 Button(
                     onClick = {
                         stimmedPackages.addAll(tempSelected)
@@ -245,6 +266,134 @@ fun AppListScreen(
                 }
             }
         }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SettingsScreen(
+    forceOverlay: Boolean,
+    onForceOverlayChange: (Boolean) -> Unit,
+    onOpenOverlaySettings: () -> Unit,
+    onBack: () -> Unit,
+) {
+    val context = LocalContext.current
+    val canDrawOverlays = Settings.canDrawOverlays(context)
+    val isVendorDevice = StimsService.OVERLAY_VENDORS.any {
+        Build.MANUFACTURER.equals(it, ignoreCase = true)
+    }
+    val effectiveOverlay = forceOverlay || isVendorDevice
+    val overlayActive = effectiveOverlay && canDrawOverlays
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Settings") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                    }
+                }
+            )
+        }
+    ) { padding ->
+        Column(modifier = Modifier.padding(padding)) {
+
+            SettingsSectionHeader("DISPLAY")
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("Force awake overlay", style = MaterialTheme.typography.bodyLarge)
+                    Text(
+                        text = when {
+                            overlayActive && isVendorDevice -> "Active — required on this device"
+                            overlayActive                   -> "Active — screen kept on via overlay"
+                            effectiveOverlay                -> "Enabled — overlay permission required"
+                            else                            -> "Inactive"
+                        },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = when {
+                            overlayActive    -> Color(0xFF2E7D32)
+                            effectiveOverlay -> MaterialTheme.colorScheme.error
+                            else             -> MaterialTheme.colorScheme.onSurfaceVariant
+                        }
+                    )
+                }
+                Switch(
+                    checked = effectiveOverlay,
+                    enabled = !isVendorDevice,
+                    onCheckedChange = { checked ->
+                        onForceOverlayChange(checked)
+                        if (checked && !canDrawOverlays) {
+                            onOpenOverlaySettings()
+                        }
+                    }
+                )
+            }
+
+            Divider()
+
+            SettingsSectionHeader("ABOUT")
+
+            SettingsInfoRow(label = "Version", value = BuildConfig.VERSION_NAME)
+            Divider(modifier = Modifier.padding(horizontal = 16.dp))
+
+            SettingsInfoRow(label = "Author", value = "acidburnmonkey")
+            Divider(modifier = Modifier.padding(horizontal = 16.dp))
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable {
+                        context.startActivity(
+                            Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/acidburnmonkey/stims"))
+                        )
+                    }
+                    .padding(horizontal = 16.dp, vertical = 16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "GitHub",
+                    style = MaterialTheme.typography.bodyLarge,
+                    modifier = Modifier.weight(1f)
+                )
+                Icon(
+                    imageVector = Icons.Default.OpenInNew,
+                    contentDescription = "Open GitHub",
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun SettingsSectionHeader(title: String) {
+    Text(
+        text = title,
+        style = MaterialTheme.typography.labelSmall,
+        color = MaterialTheme.colorScheme.primary,
+        fontWeight = FontWeight.Bold,
+        modifier = Modifier.padding(start = 16.dp, top = 20.dp, bottom = 4.dp)
+    )
+}
+
+@Composable
+fun SettingsInfoRow(label: String, value: String) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(label, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+        Text(value, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -267,9 +416,7 @@ fun StimmedAppItem(app: AppInfo, onRemove: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 12.dp, vertical = 6.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = Color(0xFFE8F5E9)
-        ),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E9)),
         elevation = CardDefaults.cardElevation(4.dp)
     ) {
         Row(
@@ -329,8 +476,8 @@ fun AppIcon(icon: Drawable?) {
 }
 
 @Composable
-fun BatteryWarningBanner(isSamsung: Boolean, onClick: () -> Unit) {
-    val warningColor = Color(0xFFF59E0B)
+fun OverlayWarningBanner(onClick: () -> Unit) {
+    val warningColor = Color(0xFFEA580C)
 
     Row(
         modifier = Modifier
@@ -342,7 +489,7 @@ fun BatteryWarningBanner(isSamsung: Boolean, onClick: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(
-            imageVector = Icons.Default.Warning,
+            imageVector = Icons.Default.Visibility,
             contentDescription = null,
             tint = warningColor,
             modifier = Modifier.size(20.dp)
@@ -350,18 +497,15 @@ fun BatteryWarningBanner(isSamsung: Boolean, onClick: () -> Unit) {
         Spacer(modifier = Modifier.width(10.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = "Battery optimization is active",
+                text = "Overlay permission required (Samsung)",
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFF92400E)
+                color = Color(0xFF1E40AF)
             )
             Text(
-                text = if (isSamsung)
-                    "Tap → App info → Battery → set to Unrestricted"
-                else
-                    "Tap → App info → Battery → Unrestricted",
+                text = "Tap → Allow display over other apps",
                 style = MaterialTheme.typography.bodySmall,
-                color = Color(0xFFB45309)
+                color = warningColor
             )
         }
         Spacer(modifier = Modifier.width(6.dp))
