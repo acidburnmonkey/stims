@@ -394,6 +394,37 @@
       line-height: 1.85;
     }
 
+    /* ─── SCREENSHOTS ─── */
+    .screenshots-track {
+      display: flex;
+      gap: 1.25rem;
+      overflow-x: auto;
+      padding-bottom: 1rem;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border-mid) transparent;
+    }
+
+    .screenshots-track::-webkit-scrollbar { height: 4px; }
+    .screenshots-track::-webkit-scrollbar-track { background: transparent; }
+    .screenshots-track::-webkit-scrollbar-thumb { background: var(--border-mid); border-radius: 2px; }
+
+    .screenshot {
+      flex-shrink: 0;
+      width: 220px;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      overflow: hidden;
+      transition: border-color 0.18s;
+    }
+
+    .screenshot:hover { border-color: var(--border-mid); }
+
+    .screenshot img {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+
     /* ─── FOOTER ─── */
     footer {
       border-top: 1px solid var(--border);
@@ -498,10 +529,22 @@
   <!-- ═══ COMPAT STRIP ═══ -->
   <div class="compat-strip">
     <span class="compat-item">Minimum <span>Android 7.0 (API 24)</span></span>
-    <span class="compat-item">Target <span>Android 14 (API 34)</span></span>
+    <span class="compat-item">Target <span>Android 15 (API 35)</span></span>
     <span class="compat-item">Size <span>Lightweight</span></span>
     <span class="compat-item">License <span>Open Source</span></span>
   </div>
+
+  <!-- ═══ SCREENSHOTS ═══ -->
+  <div class="section">
+    <p class="section-label">Screenshots</p>
+    <div class="screenshots-track">
+      <div class="screenshot"><img src="phoneScreenshots/s1.jpeg" alt="Stims screenshot 1" loading="lazy"></div>
+      <div class="screenshot"><img src="phoneScreenshots/s2.jpeg" alt="Stims screenshot 2" loading="lazy"></div>
+      <div class="screenshot"><img src="phoneScreenshots/s3.jpeg" alt="Stims screenshot 3" loading="lazy"></div>
+    </div>
+  </div>
+
+  <hr>
 
   <!-- ═══ FEATURES ═══ -->
   <div class="section">
