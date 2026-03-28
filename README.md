@@ -37,7 +37,7 @@ On stock Android and most other devices this permission is not needed and the ap
 **Requirements**
 
 - Android Studio or the Android SDK command-line tools
-- JDK 8+
+- JDK 11+
 
 **Steps**
 
@@ -53,11 +53,11 @@ The APK will be output to:
 app/build/outputs/apk/debug/app-debug.apk
 ```
 
-For a release build:
+For a release bundle (AAB):
 
 ```bash
-./gradlew assembleRelease
-# output: app/build/outputs/apk/release/app-release-unsigned.apk
+./gradlew bundleRelease
+# output: app/build/outputs/bundle/release/app-release.aab
 ```
 
 ---
@@ -65,4 +65,4 @@ For a release build:
 ## Compatibility
 
 - **Minimum:** Android 7.0 (Nougat, API 24)
-- **Target:** Android 14 (API 34)
+- **Target:** Android 15 (API 35)
