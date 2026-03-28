@@ -24,6 +24,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material.icons.filled.Delete
@@ -291,7 +294,7 @@ fun SettingsScreen(
                 title = { Text("Settings") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 }
             )
@@ -336,15 +339,15 @@ fun SettingsScreen(
                 )
             }
 
-            Divider()
+            HorizontalDivider()
 
             SettingsSectionHeader("ABOUT")
 
             SettingsInfoRow(label = "Version", value = BuildConfig.VERSION_NAME)
-            Divider(modifier = Modifier.padding(horizontal = 16.dp))
+            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
 
             SettingsInfoRow(label = "Author", value = "acidburnmonkey")
-            Divider(modifier = Modifier.padding(horizontal = 16.dp))
+            HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
 
             Row(
                 modifier = Modifier
@@ -363,7 +366,7 @@ fun SettingsScreen(
                     modifier = Modifier.weight(1f)
                 )
                 Icon(
-                    imageVector = Icons.Default.OpenInNew,
+                    imageVector = Icons.AutoMirrored.Filled.OpenInNew,
                     contentDescription = "Open GitHub",
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.size(18.dp)
@@ -510,7 +513,7 @@ fun OverlayWarningBanner(onClick: () -> Unit) {
         }
         Spacer(modifier = Modifier.width(6.dp))
         Icon(
-            imageVector = Icons.Default.ArrowForward,
+            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
             contentDescription = null,
             tint = warningColor,
             modifier = Modifier.size(16.dp)
