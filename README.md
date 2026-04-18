@@ -20,7 +20,7 @@ Required to detect which app is in the foreground. On first launch the app will 
 
 Without this permission the background service cannot detect foreground apps and the screen will not be kept awake.
 
-### Display over other apps (required on Samsung / One UI)
+### Display over other apps (required on Samsung / OneUI)
 
 Samsung's One UI disables the standard wake lock mechanism, so Stims uses a transparent overlay window instead to keep the screen on. The overlay is invisible and non-interactive.
 
